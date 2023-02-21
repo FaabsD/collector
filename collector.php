@@ -13,6 +13,7 @@ License: A "Slug" license name e.g. GPL2
 if ( ! function_exists( 'get_plugin_data' ) ) {
 	require_once( ABSPATH . "wp-admin/includes/plugin.php" );
 }
+require_once 'CollectionField.php';
 
 class CollectorPlugin {
 
@@ -35,13 +36,24 @@ class CollectorPlugin {
 		register_activation_hook( __FILE__, array( $this, 'activate' ) );
 	}
 
+	/**
+	 * Handle the Setup for the Collector plugin
+	 *
+	 * @return void
+	 */
 	public function collectorSetup(): void {
 		$this->registerPosttypes();
+		$this->registerRestFields();
 		add_action( 'admin_init', [ $this, 'options' ] );
 		$this->settingsPage();
 
 	}
 
+	/**
+	 * register Custom Post-types
+	 *
+	 * @return void
+	 */
 	private function registerPosttypes(): void {
 		$options = get_option( 'collector_options', $this->defaultSettings );
 		register_post_type( 'collection', array(
@@ -69,6 +81,13 @@ class CollectorPlugin {
 		) );
 	}
 
+	/**
+	 * Used to render all the specified post-types
+	 *
+	 * @param array $posttypes
+	 *
+	 * @return void
+	 */
 	private function unregisterPosttypes( array $posttypes ): void {
 		foreach ( $posttypes as $posttype ) {
 			unregister_post_type( $posttype );
@@ -76,6 +95,7 @@ class CollectorPlugin {
 	}
 
 	/**
+	 * Render a settings page for the collector plugin
 	 *
 	 * @return void
 	 */
@@ -90,6 +110,11 @@ class CollectorPlugin {
 		} );
 	}
 
+	/**
+	 * Handles setting up the options for the collector plugin
+	 *
+	 * @return void
+	 */
 	public function options(): void {
 		$fields = array(
 			array(
@@ -136,6 +161,13 @@ class CollectorPlugin {
 		echo '<p>From here you can set the general options</p>';
 	}
 
+	/**
+	 * render a checkbox on the settings page
+	 *
+	 * @param array $args
+	 *
+	 * @return void
+	 */
 	public function renderCheckbox( $args ): void {
 		if ( defined( 'WP_DEBUG' ) ) {
 			error_log( '======== DEBUG LOG FOR RENDERING CHECKBOXES ON SETTINGS PAGE FOR COLLECTOR PLUGIN ========' );
@@ -150,11 +182,33 @@ class CollectorPlugin {
 
 	}
 
+	/**
+	 * Register REST API Fields
+	 * @return void
+	 */
+	private function registerRestFields(): void {
+		register_rest_field( 'collection', 'meta', [
+			'get_callback' => function ( $data ) {
+				return get_post_meta( $data['id'], '', '' );
+			},
+		] );
+	}
+
+	/**
+	 * Fires when the plugin activates
+	 *
+	 * @return void
+	 */
 	public function activate(): void {
 		$this->registerPosttypes();
 		flush_rewrite_rules();
 	}
 
+	/**
+	 * Fires when the plugin is deactivated
+	 *
+	 * @return void
+	 */
 	public function deactivate(): void {
 		$this->unregisterPosttypes( array( 'collection' ) );
 		flush_rewrite_rules();
