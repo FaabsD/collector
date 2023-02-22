@@ -10,10 +10,8 @@ Author URI: https://fd-hendriks.nl
 License: A "Slug" license name e.g. GPL2
 */
 
-if ( ! function_exists( 'get_plugin_data' ) ) {
-	require_once( ABSPATH . "wp-admin/includes/plugin.php" );
-}
-require_once 'CollectionField.php';
+use Carbon_Fields\Container;
+use Carbon_Fields\Field;
 
 class CollectorPlugin {
 
@@ -24,6 +22,11 @@ class CollectorPlugin {
 	private array $defaultSettings;
 
 	public function __construct() {
+		if ( ! function_exists( 'get_plugin_data' ) ) {
+			require_once( ABSPATH . "wp-admin/includes/plugin.php" );
+		}
+		require_once 'CollectionField.php';
+
 		$this->pluginData       = get_plugin_data( __FILE__ );
 		$this->pluginUri        = $this->pluginData['PluginURI'];
 		$this->pluginTextDomain = $this->pluginData['TextDomain'];
@@ -31,9 +34,12 @@ class CollectorPlugin {
 			'open_to_rest' => 0,
 		);
 
+		add_action( 'after_setup_theme', array( $this, 'loadCarbonFields' ) );
 		add_action( 'init', array( $this, 'collectorSetup' ) );
+		add_action( 'carbon_fields_register_fields', array( $this, 'registerCarbonFields' ) );
 
 		register_activation_hook( __FILE__, array( $this, 'activate' ) );
+		register_deactivation_hook( __FILE__, array( $this, 'deactivate' ) );
 	}
 
 	/**
@@ -45,7 +51,7 @@ class CollectorPlugin {
 		$this->registerPosttypes();
 		$this->registerRestFields();
 		add_action( 'admin_init', [ $this, 'options' ] );
-		$this->settingsPage();
+		// $this->settingsPage();
 
 	}
 
@@ -192,6 +198,61 @@ class CollectorPlugin {
 				return get_post_meta( $data['id'], '', '' );
 			},
 		] );
+	}
+
+	public function loadCarbonFields(): void {
+		require_once 'vendor/autoload.php';
+		\Carbon_Fields\Carbon_Fields::boot();
+	}
+
+	public function registerCarbonFields(): void {
+		Container::make( 'theme_options', __( 'Collector Settings', $this->pluginTextDomain ) )
+		         ->add_tab( 'general', array(
+
+			         Field::make( 'separator', 'collector_collection_separator', __( 'Collection Icon Options', $this->pluginTextDomain ) ),
+
+			         Field::make( 'select', 'collector_collection-icon', __( 'Choose Collection Icon', $this->pluginTextDomain ) )->set_options( array(
+				         'dashicons-archive' => __( 'Archive Icon', $this->pluginTextDomain ),
+				         'dashicons-book'    => __( 'Book/Album Icon', $this->pluginTextDomain ),
+				         'custom-icon'       => __( 'Custom Icon', $this->pluginTextDomain ),
+			         ) )->set_visible_in_rest_api( false )->set_help_text( __( 'Choose which icon you want the collection to use in the dashboard screen', $this->pluginTextDomain ) )->set_default_value( 'dashicons-archive' ),
+
+			         Field::make( 'select', 'collector_choose-own-icon', __( 'Use your own icon?', $this->pluginTextDomain ) )->set_options( array(
+				         'yes' => __( 'Yes', $this->pluginTextDomain ),
+				         'no'  => __( 'No', $this->pluginTextDomain ),
+			         ) )->set_visible_in_rest_api( false )->set_help_text( __( "Do you want to use your own icon instead of the plugin's one", $this->pluginTextDomain ) )->set_default_value( 'no' )->set_conditional_logic( array(
+				         'relation' => 'AND',
+				         array(
+					         'field'   => 'collector_collection-icon',
+					         'value'   => 'custom-icon',
+					         'compare' => '=',
+				         ),
+			         ) ),
+
+			         Field::make( 'media_gallery', 'collector_custom-icon', __( 'Upload/Choose custom icon', $this->pluginTextDomain ) )->set_type( 'image' )->set_duplicates_allowed( false )->set_help_text( __( 'Upload an icon in png format to use for the collection or select an existing one', $this->pluginTextDomain ) )->set_conditional_logic( array(
+				         'relation' => 'AND',
+				         array(
+					         'field'   => 'collector_choose-own-icon',
+					         'value'   => 'yes',
+					         'compare' => '=',
+				         ),
+			         ) ),
+
+			         Field::make( 'separator', 'collector_category_separator', __( 'Category Options', $this->pluginTextDomain ) ),
+
+			         Field::make( 'select', 'collector_use_categories', __( 'Use Categories', $this->pluginTextDomain ) )->set_options( array(
+				         'yes' => __( 'Yes', $this->pluginTextDomain ),
+				         'no'  => __( 'No', $this->pluginTextDomain ),
+			         ) )->set_default_value( 'yes' )->set_help_text( __( 'Do you want to categorize your collection(s)?', $this->pluginTextDomain ) )->set_visible_in_rest_api( false ),
+
+
+		         ) )
+		         ->add_tab( 'Developer options', array(
+			         Field::make( 'checkbox', 'collector_show_in_rest', 'Show in Rest API' )
+			              ->set_visible_in_rest_api( false )
+			              ->set_help_text( __( 'Open your collection to the REST API for usage in external apps' ) )
+			              ->set_default_value( 'no' ),
+		         ) );
 	}
 
 	/**
