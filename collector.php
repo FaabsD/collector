@@ -327,6 +327,25 @@ class CollectorPlugin {
 			                               ->set_help_text( __( 'Open your collection to the REST API for usage in external apps' ) )
 			                               ->set_default_value( 'no' ),
 		                          ) );
+		// add a sub settings field for adding custom fields to the collection
+
+		$customFieldsSettings = Container::make( 'theme_options', __( 'Custom Field Groups', $this->pluginTextDomain ) )
+		                                 ->set_page_parent( $mainContainer )
+		                                 ->add_fields( array(
+			                                 Field::make( 'separator', 'collector_collection_custom_field_groups_separator', __( 'Add Custom fields', $this->pluginTextDomain ) )
+			                                      ->set_help_text( __( 'From here you can add extra field groups with custom fields to your collection for more information as you see fit', $this->pluginTextDomain ) ),
+			                                 Field::make( 'complex', 'collector_collection_custom_field_groups', __( 'Custom Field Groups', $this->pluginTextDomain ) )
+			                                      ->set_duplicate_groups_allowed( false )
+			                                      ->setup_labels( array(
+				                                      'plural_name'   => __( 'Custom Field Groups', $this->pluginTextDomain ),
+				                                      'singular_name' => __( 'Custom Field Group', $this->pluginTextDomain ),
+			                                      ) )->add_fields( array(
+					                                 Field::make( 'text', 'group_name', __( 'Field group name' ) )
+					                                      ->set_help_text( __( 'The name of the group in which these custom fields will reside', $this->pluginTextDomain ) )
+					                                      ->set_default_value( 'Custom data' ),
+
+				                                 ) ),
+		                                 ) );
 	}
 
 	public function disableGutenBergForCollection( $current_status, $post_type ): mixed {
