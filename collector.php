@@ -51,7 +51,13 @@ class CollectorPlugin {
 	public function collectorSetup(): void {
 		$this->registerPosttypes();
 		$this->registerRestFields();
-		// $this->settingsPage();
+
+		if ( gettype( carbon_get_theme_option( 'collector_use_categories' ) ) === "string" && carbon_get_theme_option( 'collector_use_categories' ) === "yes" ) {
+			$this->registerTaxonomies();
+		}
+
+		// Add filters
+		add_filter( 'use_block_editor_for_post_type', [ $this, 'disableGutenBergForCollection' ], 10, 2 );
 
 	}
 
@@ -62,8 +68,8 @@ class CollectorPlugin {
 	 */
 	private function registerPosttypes(): void {
 
-		$userIconPreference = carbon_get_theme_option( 'collector_collection-icon' );
-		$openToRest         = carbon_get_theme_option( 'collector_show_in_rest' );
+		$userIconPreference = $this->option( 'collector_collection-icon' );
+		$openToRest         = $this->option( 'collector_show_in_rest' );
 
 		if ( defined( 'WP_DEBUG' ) ) {
 			error_log( '======== GET THE USER DEFINED ICON FOR COLLECTION ======' );
@@ -103,7 +109,6 @@ class CollectorPlugin {
 			}
 		}
 
-		$options = get_option( 'collector_options', $this->defaultSettings );
 		register_post_type( 'collection', array(
 			'labels'       => $labels,
 			'public'       => true,
@@ -125,6 +130,53 @@ class CollectorPlugin {
 	private function unregisterPosttypes( array $posttypes ): void {
 		foreach ( $posttypes as $posttype ) {
 			unregister_post_type( $posttype );
+		}
+	}
+
+	private function registerTaxonomies(): void {
+		$collectionTypeArgs = array(
+			'labels'       => array(
+				'name'              => __( 'Collection-types', $this->pluginTextDomain ),
+				'singular_name'     => __( 'Collection-type', $this->pluginTextDomain ),
+				'search_items'      => __( 'Search Collection-types', $this->pluginTextDomain ),
+				'all_items'         => __( 'All Collection-types', $this->pluginTextDomain ),
+				'parent_item'       => __( 'Parent Collection-type', $this->pluginTextDomain ),
+				'parent_item_colon' => __( 'Parent Collection-type:', $this->pluginTextDomain ),
+				'edit_item'         => __( 'Edit Collection-type', $this->pluginTextDomain ),
+				'update_item'       => __( 'Update Collection-type', $this->pluginTextDomain ),
+				'add_new_item'      => __( 'Add New Collection-type', $this->pluginTextDomain ),
+				'new_item_name'     => __( 'New Collection-type Name', $this->pluginTextDomain ),
+				'menu_name'         => __( 'Collection-types', $this->pluginTextDomain ),
+			),
+			'description'  => __( 'To distinguish your different kinds of collections, You can add a type here', $this->pluginTextDomain ),
+			'public'       => true,
+			'hierarchical' => true,
+			'show_in_rest' => ( gettype( $this->option( 'collector_show_in_rest' ) ) === 'boolean' && $this->option( 'collector_show_in_rest' ) ) ? $this->option( 'collector_show_in_rest' ) : false,
+		);
+		register_taxonomy( 'collection_type', 'collection', $collectionTypeArgs );
+
+		if ( gettype( $this->option( 'collector_use_city_category' ) ) === 'boolean' && $this->option( 'collector_use_city_category' ) ) {
+			$collectionCityArgs = array(
+				'labels'       => array(
+					'name'              => __( 'Cities', $this->pluginTextDomain ),
+					'singular_name'     => __( 'City', $this->pluginTextDomain ),
+					'search_items'      => __( 'Search Cities', $this->pluginTextDomain ),
+					'all_items'         => __( 'All Cities', $this->pluginTextDomain ),
+					'parent_item'       => __( 'Parent City', $this->pluginTextDomain ),
+					'parent_item_colon' => __( 'Parent City:', $this->pluginTextDomain ),
+					'edit_item'         => __( 'Edit City', $this->pluginTextDomain ),
+					'update_item'       => __( 'Update City', $this->pluginTextDomain ),
+					'add_new_item'      => __( 'Add New City', $this->pluginTextDomain ),
+					'new_item_name'     => __( 'New City', $this->pluginTextDomain ),
+					'menu_name'         => __( 'Cities', $this->pluginTextDomain ),
+				),
+				'description'  => __( 'If you want to show the city/place of origin for your collection item, you can add it here', $this->pluginTextDomain ),
+				'public'       => true,
+				'hierarchical' => true,
+				'show_in_rest' => ( gettype( $this->option( 'collector_show_in_rest' ) ) === 'boolean' && $this->option( 'collector_show_in_rest' ) ) ? $this->option( 'collector_show_in_rest' ) : false,
+			);
+
+			register_taxonomy( 'collection_city', 'collection', $collectionCityArgs );
 		}
 	}
 
@@ -235,6 +287,16 @@ class CollectorPlugin {
 		                          ) );
 	}
 
+	public function disableGutenBergForCollection( $current_status, $post_type ): mixed {
+		$disabledPostTypes = array( 'collection' );
+
+		if ( in_array( $post_type, $disabledPostTypes, true ) ) {
+			$current_status = false;
+		}
+
+		return $current_status;
+	}
+
 	/**
 	 * Fires when the plugin activates
 	 *
@@ -253,6 +315,17 @@ class CollectorPlugin {
 	public function deactivate(): void {
 		$this->unregisterPosttypes( array( 'collection' ) );
 		flush_rewrite_rules();
+	}
+
+	/**
+	 * Get plugin options in a short way
+	 *
+	 * @param $optionName
+	 *
+	 * @return mixed|null
+	 */
+	private function option( $optionName ): mixed {
+		return carbon_get_theme_option( $optionName );
 	}
 
 }
