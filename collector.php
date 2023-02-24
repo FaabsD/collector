@@ -178,6 +178,44 @@ class CollectorPlugin {
 
 			register_taxonomy( 'collection_city', 'collection', $collectionCityArgs );
 		}
+
+		// check if user chose to use his/her own custom categories
+		if ( gettype( $this->option( 'collector_add_custom_categories' ) ) === 'boolean' && $this->option( 'collector_add_custom_categories' ) ) {
+			// add the user's own custom categories if present
+			if ( gettype( $this->option( 'collector_collection_custom_category' ) ) === 'array' ) {
+				$usersCategories = $this->option( 'collector_collection_custom_category' );
+
+				foreach ( $usersCategories as $index => $userCategory ) {
+					$category     = $userCategory['category'];
+					$pluralName   = $userCategory['name'];
+					$singularName = $userCategory['singular_name'];
+					$hierarchical = $userCategory['hierarchical'];
+					$description  = $userCategory['description'];
+
+					$userCategoryArgs = array(
+						'labels'       => array(
+							'name'              => __( $pluralName, $this->pluginTextDomain ),
+							'singular_name'     => __( $singularName, $this->pluginTextDomain ),
+							'search_items'      => __( 'Search ' . $pluralName, $this->pluginTextDomain ),
+							'all_items'         => __( 'All ' . $pluralName, $this->pluginTextDomain ),
+							'parent_item'       => __( 'Parent ' . $singularName, $this->pluginTextDomain ),
+							'parent_item_colon' => __( 'Parent ' . $singularName . ':', $this->pluginTextDomain ),
+							'edit_item'         => __( 'Edit ' . $singularName, $this->pluginTextDomain ),
+							'update_item'       => __( 'Update ' . $singularName, $this->pluginTextDomain ),
+							'add_new_item'      => __( 'Add New ' . $singularName, $this->pluginTextDomain ),
+							'new_item_name'     => __( 'New ' . $singularName . 'Name', $this->pluginTextDomain ),
+							'menu_name'         => __( $pluralName, $this->pluginTextDomain ),
+						),
+						'description'  => __( $description, $this->pluginTextDomain ),
+						'public'       => true,
+						'hierarchical' => $hierarchical,
+						'show_in_rest' => ( gettype( $this->option( 'collector_show_in_rest' ) ) === 'boolean' && $this->option( 'collector_show_in_rest' ) ) ? $this->option( 'collector_show_in_rest' ) : false,
+
+					);
+					register_taxonomy( $category, 'collection', $userCategoryArgs );
+				}
+			}
+		}
 	}
 
 	private function registerRestFields(): void {
@@ -262,10 +300,14 @@ class CollectorPlugin {
 				                               'singular_name' => __( 'Custom category', $this->pluginTextDomain ),
 			                               ) )
 			                               ->add_fields( array(
+				                               Field::make( 'text', 'category' )
+				                                    ->set_help_text( __( 'The name of your category in lowercase separated by underscores(_)', $this->pluginTextDomain ) ),
 				                               Field::make( 'text', 'name' )
-				                                    ->set_help_text( __( 'The name of your custom category in plural form', $this->pluginTextDomain ) ),
+				                                    ->set_help_text( __( 'The name of your custom category in plural form (in the menu)', $this->pluginTextDomain ) ),
 				                               Field::make( 'text', 'singular_name' )
-				                                    ->set_help_text( __( 'The name of your custom category in singular form', $this->pluginTextDomain ) ),
+				                                    ->set_help_text( __( 'The name of your custom category in singular form (in the menu)', $this->pluginTextDomain ) ),
+				                               Field::make( 'textarea', 'description' )
+				                                    ->set_help_text( __( 'Set an description for your category', $this->pluginTextDomain ) ),
 				                               Field::make( 'checkbox', 'hierarchical' )
 				                                    ->set_help_text( __( 'Do you want to use sub categories for your custom category?', $this->pluginTextDomain ) )
 				                                    ->set_default_value( true ),
