@@ -9,6 +9,7 @@ Author: Fabian
 Author URI: https://fd-hendriks.nl
 License: A "Slug" license name e.g. GPL2
 */
+require_once 'vendor/autoload.php';
 
 use Carbon_Fields\Container;
 use Carbon_Fields\Field;
@@ -52,7 +53,7 @@ class CollectorPlugin {
 		$this->registerPosttypes();
 		$this->registerRestFields();
 
-		if ( gettype( carbon_get_theme_option( 'collector_use_categories' ) ) === "string" && carbon_get_theme_option( 'collector_use_categories' ) === "yes" ) {
+		if ( gettype( $this->option( 'collector_use_categories' ) ) === "string" && $this->option( 'collector_use_categories' ) === "yes" ) {
 			$this->registerTaxonomies();
 		}
 
@@ -68,17 +69,27 @@ class CollectorPlugin {
 	 */
 	private function registerPosttypes(): void {
 
-		$userIconPreference = $this->option( 'collector_collection-icon' );
-		$openToRest         = $this->option( 'collector_show_in_rest' );
-
 		if ( defined( 'WP_DEBUG' ) ) {
-			error_log( '======== GET THE USER DEFINED ICON FOR COLLECTION ======' );
-			error_log( gettype( $userIconPreference ) );
-			error_log( carbon_get_theme_option( 'collector_collection-icon' ) );
+			error_log( '===== Current fired hook =====' );
+			error_log( current_filter() );
+		}
+		$userIconPreference = null;
+		$openToRest         = null;
 
-			error_log( '======== IS COLLECTION OPEN TO REST? ========' );
-			error_log( gettype( $openToRest ) );
-			error_log( $openToRest );
+		// do the whole checking for user icon preference and open to rest only when not fired from activation hook
+		if ( current_filter() !== "activate_collector/collector.php" ) {
+			$userIconPreference = $this->option( 'collector_collection-icon' );
+			$openToRest         = $this->option( 'collector_show_in_rest' );
+
+			if ( defined( 'WP_DEBUG' ) ) {
+				error_log( '======== GET THE USER DEFINED ICON FOR COLLECTION ======' );
+				error_log( gettype( $userIconPreference ) );
+				error_log( $this->option( 'collector_collection-icon' ) );
+
+				error_log( '======== IS COLLECTION OPEN TO REST? ========' );
+				error_log( gettype( $openToRest ) );
+				error_log( $openToRest );
+			}
 		}
 
 		$labels   = array(
@@ -99,7 +110,7 @@ class CollectorPlugin {
 		$menuIcon = 'dashicons-media-archive';
 
 		// check
-		if ( gettype( $userIconPreference ) === "string" ) {
+		if ( isset( $userIconPreference ) && gettype( $userIconPreference ) === "string" ) {
 			if ( $userIconPreference === "custom-icon" ) {
 				$menuIcon = plugin_dir_url( __FILE__ ) . "assets/collection-icon.svg";
 			} elseif ( $userIconPreference === "dashicons-archive" || $userIconPreference === "dashicons-book" ) {
@@ -116,7 +127,7 @@ class CollectorPlugin {
 			'menu_icon'    => $menuIcon,
 			'rewrite'      => array( 'with_front' => true ),
 			'supports'     => array( 'title', 'editor', 'excerpt' ),
-			'show_in_rest' => ( gettype( $openToRest ) === "boolean" && $openToRest ) ? $openToRest : false,
+			'show_in_rest' => ( isset( $openToRest ) && gettype( $openToRest ) === "boolean" && $openToRest ) ? $openToRest : false,
 		) );
 	}
 
@@ -227,108 +238,106 @@ class CollectorPlugin {
 	}
 
 	public function loadCarbonFields(): void {
-		require_once 'vendor/autoload.php';
+		// require_once 'vendor/autoload.php';
 		\Carbon_Fields\Carbon_Fields::boot();
 	}
 
 	public function registerCarbonFields(): void {
-		$mainContainer = Container::make( 'theme_options', __( 'Collector Settings', $this->pluginTextDomain ) )
-		                          ->add_tab( 'general', array(
-			                          // Start custom icon settings
-			                          Field::make( 'separator', 'collector_collection_separator', __( 'Collection Icon Options', $this->pluginTextDomain ) ),
+		$mainContainer        = Container::make( 'theme_options', __( 'Collector Settings', $this->pluginTextDomain ) )
+		                                 ->add_tab( 'general', array(
+			                                 // Start custom icon settings
+			                                 Field::make( 'separator', 'collector_collection_separator', __( 'Collection Icon Options', $this->pluginTextDomain ) ),
 
-			                          Field::make( 'select', 'collector_collection-icon', __( 'Choose Collection Icon', $this->pluginTextDomain ) )
-			                               ->set_options( array(
-				                               'dashicons-archive' => __( 'Archive Icon', $this->pluginTextDomain ),
-				                               'dashicons-book'    => __( 'Book/Album Icon', $this->pluginTextDomain ),
-				                               'custom-icon'       => __( 'Custom Icon', $this->pluginTextDomain ),
-			                               ) )
-			                               ->set_visible_in_rest_api( false )
-			                               ->set_help_text( __( 'Choose which icon you want the collection to use in the dashboard screen', $this->pluginTextDomain ) )
-			                               ->set_default_value( 'dashicons-archive' ),
+			                                 Field::make( 'select', 'collector_collection-icon', __( 'Choose Collection Icon', $this->pluginTextDomain ) )
+			                                      ->set_options( array(
+				                                      'dashicons-archive' => __( 'Archive Icon', $this->pluginTextDomain ),
+				                                      'dashicons-book'    => __( 'Book/Album Icon', $this->pluginTextDomain ),
+				                                      'custom-icon'       => __( 'Custom Icon', $this->pluginTextDomain ),
+			                                      ) )
+			                                      ->set_visible_in_rest_api( false )
+			                                      ->set_help_text( __( 'Choose which icon you want the collection to use in the dashboard screen', $this->pluginTextDomain ) )
+			                                      ->set_default_value( 'dashicons-archive' ),
 
-			                          // Start simple category options
-			                          Field::make( 'separator', 'collector_category_separator', __( 'Category Options', $this->pluginTextDomain ) ),
+			                                 // Start simple category options
+			                                 Field::make( 'separator', 'collector_category_separator', __( 'Category Options', $this->pluginTextDomain ) ),
 
-			                          Field::make( 'select', 'collector_use_categories', __( 'Use Categories', $this->pluginTextDomain ) )
-			                               ->set_options( array(
-				                               'yes' => __( 'Yes', $this->pluginTextDomain ),
-				                               'no'  => __( 'No', $this->pluginTextDomain ),
-			                               ) )
-			                               ->set_default_value( 'yes' )
-			                               ->set_help_text( __( 'Do you want to categorize your collection(s)?', $this->pluginTextDomain ) )
-			                               ->set_visible_in_rest_api( false ),
+			                                 Field::make( 'select', 'collector_use_categories', __( 'Use Categories', $this->pluginTextDomain ) )
+			                                      ->set_options( array(
+				                                      'yes' => __( 'Yes', $this->pluginTextDomain ),
+				                                      'no'  => __( 'No', $this->pluginTextDomain ),
+			                                      ) )
+			                                      ->set_default_value( 'yes' )
+			                                      ->set_help_text( __( 'Do you want to categorize your collection(s)?', $this->pluginTextDomain ) )
+			                                      ->set_visible_in_rest_api( false ),
 
-			                          Field::make( 'checkbox', 'collector_use_city_category', __( 'Use a "Cities" category', $this->pluginTextDomain ) )->set_visible_in_rest_api( false )
-			                               ->set_help_text( __( 'Check this if you want to categorize your collection items by city of origin', $this->pluginTextDomain ) )
-			                               ->set_default_value( 'no' )
-			                               ->set_conditional_logic( array(
-				                               'relation' => 'AND',
-				                               array(
-					                               'field'   => 'collector_use_categories',
-					                               'value'   => 'yes',
-					                               'compare' => '=',
-				                               ),
-			                               ) ),
+			                                 Field::make( 'checkbox', 'collector_use_city_category', __( 'Use a "Cities" category', $this->pluginTextDomain ) )->set_visible_in_rest_api( false )
+			                                      ->set_help_text( __( 'Check this if you want to categorize your collection items by city of origin', $this->pluginTextDomain ) )
+			                                      ->set_default_value( 'no' )
+			                                      ->set_conditional_logic( array(
+				                                      'relation' => 'AND',
+				                                      array(
+					                                      'field'   => 'collector_use_categories',
+					                                      'value'   => 'yes',
+					                                      'compare' => '=',
+				                                      ),
+			                                      ) ),
 
 
-		                          ) )
-		                          ->add_tab( 'Advanced Category Options', array(
+		                                 ) )
+		                                 ->add_tab( 'Advanced Category Options', array(
 
-			                          Field::make( 'separator', 'collector_advanced_category_setting_separator', __( 'Advanced Settings for using Categories', $this->pluginTextDomain ) )
-			                               ->set_help_text( __( 'Use the following settings only if you enabled category usage in the general settings tab', $this->pluginTextDomain ) ),
+			                                 Field::make( 'separator', 'collector_advanced_category_setting_separator', __( 'Advanced Settings for using Categories', $this->pluginTextDomain ) )
+			                                      ->set_help_text( __( 'Use the following settings only if you enabled category usage in the general settings tab', $this->pluginTextDomain ) ),
 
-			                          Field::make( 'checkbox', 'collector_add_custom_categories', __( 'Use your own categories besides collection type and City', $this->pluginTextDomain ) )
-			                               ->set_help_text( __( 'Check this if you want to add your own categories to your collections', $this->pluginTextDomain ) )
-			                               ->set_default_value( false )
-			                               ->set_visible_in_rest_api( false ),
+			                                 Field::make( 'checkbox', 'collector_add_custom_categories', __( 'Use your own categories besides collection type and City', $this->pluginTextDomain ) )
+			                                      ->set_help_text( __( 'Check this if you want to add your own categories to your collections', $this->pluginTextDomain ) )
+			                                      ->set_default_value( false )
+			                                      ->set_visible_in_rest_api( false ),
 
-			                          Field::make( 'separator', 'collector_advanced_category_settings_custom_categories_separator', __( 'Add Categories', $this->pluginTextDomain ) )
-			                               ->set_help_text( __( 'From here you can add your own categories', $this->pluginTextDomain ) )
-			                               ->set_conditional_logic( array(
-				                               'relation' => 'AND',
-				                               array(
-					                               'field'   => 'collector_add_custom_categories',
-					                               'value'   => true,
-					                               'compare' => '=',
-				                               ),
-			                               ) ),
+			                                 Field::make( 'separator', 'collector_advanced_category_settings_custom_categories_separator', __( 'Add Categories', $this->pluginTextDomain ) )
+			                                      ->set_help_text( __( 'From here you can add your own categories', $this->pluginTextDomain ) )
+			                                      ->set_conditional_logic( array(
+				                                      'relation' => 'AND',
+				                                      array(
+					                                      'field'   => 'collector_add_custom_categories',
+					                                      'value'   => true,
+					                                      'compare' => '=',
+				                                      ),
+			                                      ) ),
 
-			                          Field::make( 'complex', 'collector_collection_custom_category', __( 'Custom Category', $this->pluginTextDomain ) )
-			                               ->setup_labels( array(
-				                               'plural_name'   => __( 'Custom categories', $this->pluginTextDomain ),
-				                               'singular_name' => __( 'Custom category', $this->pluginTextDomain ),
-			                               ) )
-			                               ->add_fields( array(
-				                               Field::make( 'text', 'category' )
-				                                    ->set_help_text( __( 'The name of your category in lowercase separated by underscores(_)', $this->pluginTextDomain ) ),
-				                               Field::make( 'text', 'name' )
-				                                    ->set_help_text( __( 'The name of your custom category in plural form (in the menu)', $this->pluginTextDomain ) ),
-				                               Field::make( 'text', 'singular_name' )
-				                                    ->set_help_text( __( 'The name of your custom category in singular form (in the menu)', $this->pluginTextDomain ) ),
-				                               Field::make( 'textarea', 'description' )
-				                                    ->set_help_text( __( 'Set an description for your category', $this->pluginTextDomain ) ),
-				                               Field::make( 'checkbox', 'hierarchical' )
-				                                    ->set_help_text( __( 'Do you want to use sub categories for your custom category?', $this->pluginTextDomain ) )
-				                                    ->set_default_value( true ),
-			                               ) )
-			                               ->set_conditional_logic( array(
-				                               'relation' => 'AND',
-				                               array(
-					                               'field'   => 'collector_add_custom_categories',
-					                               'value'   => true,
-					                               'compare' => '=',
-				                               ),
-			                               ) ),
-		                          ) )
-		                          ->add_tab( 'Developer options', array(
-			                          Field::make( 'checkbox', 'collector_show_in_rest', 'Show in Rest API' )
-			                               ->set_visible_in_rest_api( false )
-			                               ->set_help_text( __( 'Open your collection to the REST API for usage in external apps' ) )
-			                               ->set_default_value( 'no' ),
-		                          ) );
-		// add a sub settings field for adding custom fields to the collection
-
+			                                 Field::make( 'complex', 'collector_collection_custom_category', __( 'Custom Category', $this->pluginTextDomain ) )
+			                                      ->setup_labels( array(
+				                                      'plural_name'   => __( 'Custom categories', $this->pluginTextDomain ),
+				                                      'singular_name' => __( 'Custom category', $this->pluginTextDomain ),
+			                                      ) )
+			                                      ->add_fields( array(
+				                                      Field::make( 'text', 'category' )
+				                                           ->set_help_text( __( 'The name of your category in lowercase separated by underscores(_)', $this->pluginTextDomain ) ),
+				                                      Field::make( 'text', 'name' )
+				                                           ->set_help_text( __( 'The name of your custom category in plural form (in the menu)', $this->pluginTextDomain ) ),
+				                                      Field::make( 'text', 'singular_name' )
+				                                           ->set_help_text( __( 'The name of your custom category in singular form (in the menu)', $this->pluginTextDomain ) ),
+				                                      Field::make( 'textarea', 'description' )
+				                                           ->set_help_text( __( 'Set an description for your category', $this->pluginTextDomain ) ),
+				                                      Field::make( 'checkbox', 'hierarchical' )
+				                                           ->set_help_text( __( 'Do you want to use sub categories for your custom category?', $this->pluginTextDomain ) )
+				                                           ->set_default_value( true ),
+			                                      ) )
+			                                      ->set_conditional_logic( array(
+				                                      'relation' => 'AND',
+				                                      array(
+					                                      'field'   => 'collector_add_custom_categories',
+					                                      'value'   => true,
+					                                      'compare' => '=',
+				                                      ),
+			                                      ) ),
+		                                 ) )
+		                                 ->add_tab( 'Developer options', array(
+			                                 Field::make( 'checkbox', 'collector_show_in_rest', 'Show in Rest API' )
+			                                      ->set_visible_in_rest_api( false )
+			                                      ->set_help_text( __( 'Open your collection to the REST API for usage in external apps' ) )
+			                                      ->set_default_value( 'no' ),
+		                                 ) );
 		$customFieldsSettings = Container::make( 'theme_options', __( 'Custom Field Groups', $this->pluginTextDomain ) )
 		                                 ->set_page_parent( $mainContainer )
 		                                 ->add_fields( array(
@@ -343,6 +352,11 @@ class CollectorPlugin {
 					                                 Field::make( 'text', 'group_name', __( 'Field group name' ) )
 					                                      ->set_help_text( __( 'The name of the group in which these custom fields will reside', $this->pluginTextDomain ) )
 					                                      ->set_default_value( 'Custom data' ),
+					                                 Field::make( 'multiselect', 'group_categories', __( 'Field group categories' ) )
+					                                      ->add_options(
+						                                      array( $this, 'getCollectionTypes' )
+					                                      )->set_help_text( __( 'Choose on which collection types this field group should show', $this->pluginTextDomain ) ),
+
 
 				                                 ) ),
 		                                 ) );
@@ -379,14 +393,42 @@ class CollectorPlugin {
 	}
 
 	/**
-	 * Get plugin options in a short way
+	 * provide a shorter way to use the carbon_get_theme_option helper from Carbon Fields
 	 *
-	 * @param $optionName
+	 * @param string $optionName
 	 *
 	 * @return mixed|null
 	 */
-	private function option( $optionName ): mixed {
+	private function option( string $optionName ): mixed {
 		return carbon_get_theme_option( $optionName );
+	}
+
+	public function getCollectionTypes() {
+		if ( defined( 'WP_DEBUG' ) ) {
+			error_log( $this->option( 'collector_use_categories' ) );
+		}
+		$categoriesRaw = get_terms( array(
+			'taxonomy'   => 'collection_type',
+			'hide_empty' => false,
+			'orderby'    => 'name',
+		) );
+		$categories    = array();
+
+		if ( gettype( $categoriesRaw ) === "array" && count( $categoriesRaw ) <= 1 ) {
+			if ( defined( 'WP_DEBUG' ) ) {
+				error_log( print_r( $categoriesRaw, true ) );
+			}
+
+			foreach ( $categoriesRaw as $index => $category ) {
+				$categories[ $category->term_id ] = esc_html( $category->name );
+				if ( defined( 'WP_DEBUG' ) ) {
+					error_log( gettype( $category ) );
+					error_log( print_r( $categories, true ) );
+				}
+			}
+		}
+
+		return $categories;
 	}
 
 }
