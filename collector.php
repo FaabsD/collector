@@ -40,6 +40,9 @@ class CollectorPlugin {
 		add_action( 'init', array( $this, 'collectorSetup' ) );
 		add_action( 'carbon_fields_register_fields', array( $this, 'registerCarbonFields' ) );
 
+		// add meta fields
+		add_action( 'carbon_fields_register_fields', array( $this, 'registerCarbonMetaFields' ) );
+
 		register_activation_hook( __FILE__, array( $this, 'activate' ) );
 		register_deactivation_hook( __FILE__, array( $this, 'deactivate' ) );
 	}
@@ -346,7 +349,7 @@ class CollectorPlugin {
 			                                      ->set_help_text( __( 'From here you can add extra field groups with custom fields to your collection for more information as you see fit', $this->pluginTextDomain ) ),
 
 			                                 Field::make( 'complex', 'collector_collection_custom_field_groups', __( 'Custom Field Groups', $this->pluginTextDomain ) )
-			                                      ->set_duplicate_groups_allowed( false )
+			                                      ->set_duplicate_groups_allowed( true )
 			                                      ->setup_labels( array(
 				                                      'plural_name'   => __( 'Custom Field Groups', $this->pluginTextDomain ),
 				                                      'singular_name' => __( 'Custom Field Group', $this->pluginTextDomain ),
@@ -358,11 +361,11 @@ class CollectorPlugin {
 				                                           ->set_attribute( 'placeholder', 'Custom Data' )
 				                                           ->set_required( true ),
 
-				                                      Field::make( 'multiselect', 'group_categories', __( 'Field group categories' ) )
+				                                      Field::make( 'select', 'group_category', __( 'Field group category' ) )
 				                                           ->add_options(
-					                                           array( $this, 'getCollectionTypes' )
+					                                           [ $this, 'getCollectionTypes' ]
 				                                           )
-				                                           ->set_help_text( __( 'Choose on which collection types this field group should show', $this->pluginTextDomain ) )
+				                                           ->set_help_text( __( 'Choose on which collection type this field group should show', $this->pluginTextDomain ) )
 				                                           ->set_required( true ),
 
 				                                      Field::make( 'complex', 'field_group_fields', __( 'Field Group Fields', $this->pluginTextDomain ) )
@@ -466,7 +469,7 @@ class CollectorPlugin {
 
 					                                           //complex field options for when field_type is set to select, multiselect or radio
 					                                           Field::make( 'complex', 'field_options', __( 'Field options' ) )
-					                                                ->set_duplicate_groups_allowed( false )
+					                                                ->set_duplicate_groups_allowed( true )
 					                                                ->setup_labels( array(
 						                                                'plural_name'   => __( 'Field Options', $this->pluginTextDomain ),
 						                                                'singular_name' => __( 'Field Option', $this->pluginTextDomain ),
@@ -509,7 +512,7 @@ class CollectorPlugin {
 
 					                                           // complex field for when field_type is set to color (color picker)
 					                                           Field::make( 'complex', 'field_color_palette', __( 'Predefined Color Palette', $this->pluginTextDomain ) )
-					                                                ->set_duplicate_groups_allowed( false )
+					                                                ->set_duplicate_groups_allowed( true )
 					                                                ->setup_labels( array(
 						                                                'plural_name'   => __( 'Palette Colors', $this->pluginTextDomain ),
 						                                                'singular_name' => __( 'Palette Color', $this->pluginTextDomain ),
@@ -623,7 +626,7 @@ class CollectorPlugin {
 				                                           ->set_conditional_logic( array(
 					                                           'relation' => 'AND',
 					                                           array(
-						                                           'field'   => 'group_categories',
+						                                           'field'   => 'group_category',
 						                                           'value'   => "",
 						                                           'compare' => '!=',
 					                                           ),
@@ -638,6 +641,122 @@ class CollectorPlugin {
 
 			                                      ) ),
 		                                 ) );
+	}
+
+	public function registerCarbonMetaFields(): void {
+
+		if ( $this->option( 'collector_collection_custom_field_groups' ) ) {
+			if ( defined( 'WP_DEBUG' ) ) {
+				error_log( '======== START DEBUGGING THE USER ADDED CUSTOM FIELDS ========' );
+				error_log( gettype( $this->option( 'collector_collection_custom_field_groups' ) ) );
+			}
+
+			if ( gettype( $this->option( 'collector_collection_custom_field_groups' ) ) === 'array' && count( $this->option( 'collector_collection_custom_field_groups' ) ) >= 1 ) {
+				$customFieldGroups = $this->option( 'collector_collection_custom_field_groups' );
+
+				if ( defined( 'WP_DEBUG' ) ) {
+					error_log( '======= LOOP THROUGH ALL THE CUSTOM FIELD GROUPS =======' );
+				}
+
+				foreach ( $customFieldGroups as $customFieldGroup ) {
+					if ( defined( 'WP_DEBUG' ) ) {
+						error_log( '====== FIELD GROUP ======' );
+						error_log( 'Type: ' . gettype( $customFieldGroup ) );
+						error_log( '===== FIELD GROUP DATA =====' );
+						error_log( gettype( $customFieldGroup['group_category'] ) );
+						error_log( print_r( $customFieldGroup, true ) );
+					}
+
+					$customFieldGroupFields = array();
+
+					// loop through every fieldGroup field
+					foreach ( $customFieldGroup['field_group_fields'] as $index => $field_group_field ) {
+						if ( defined( 'WP_DEBUG' ) ) {
+							error_log( '==== FIELD GROUP FIELD ' . $index . ' ====' );
+							error_log( print_r( $field_group_field, true ) );
+						}
+
+						// put some base info about the field in variables
+						$field_type          = $field_group_field['field_type'];
+						$field_id            = $field_group_field['field_id'];
+						$field_name          = $field_group_field['field_name'];
+						$field_description   = $field_group_field['field_description'];
+						$field_default_value = $field_group_field['field_default_value'];
+						$field_placeholder   = $field_group_field['field_placeholder_text'];
+
+						// set different field options as empty arrays
+						$field_color_palette = array();
+						$field_options       = array();
+						$field_mime_types    = array();
+
+						// Create Field according to field_type and put it in the $customFieldGroupFields array
+						switch ( $field_type ) {
+							case "color" :
+								// put color palette inside $field_color_palette array
+								foreach ( $field_group_field['field_color_palette'] as $key => $color ) {
+									$field_color_palette[ $key ] = $color['palette_color'];
+								}
+								if ( defined( 'WP_DEBUG' ) ) {
+									error_log( '====== COLOR PICKER FIELD DETAILS =====' );
+									error_log( '===== COLORS =====' );
+									error_log( print_r( $field_color_palette, true ) );
+								}
+								$customFieldGroupFields[ $index ] = Field::make( $field_type, $field_id, $field_name )
+								                                         ->set_help_text( $field_description )
+								                                         ->set_palette( $field_color_palette );
+								break;
+							case "radio":
+							case "select":
+							case "multiselect":
+								// put options inside the $field_options array
+								foreach ( $field_group_field['field_options'] as $field_option ) {
+									$field_options[ $field_option['option_name'] ] = $field_option['option_label'];
+								}
+								if ( defined( 'WP_DEBUG' ) ) {
+									error_log( '====== SELECTBOX, MULTISELECT OR RADIO FIELD DETAILS =====' );
+									error_log( '===== OPTIONS =====' );
+									error_log( print_r( $field_options, true ) );
+								}
+
+								$customFieldGroupFields[ $index ] = Field::make( $field_type, $field_id, $field_name )
+								                                         ->set_help_text( $field_description )
+								                                         ->add_options( $field_options );
+								break;
+							case 'file':
+							case 'image':
+							case 'media_gallery':
+								// put mime-types inside the $field_mime_types array
+								foreach ( $field_group_field['field_mime_types'] as $index => $mime_type ) {
+									$field_mime_types[ $index ] = $mime_type;
+								}
+								if ( defined( 'WP_DEBUG' ) ) {
+									error_log( '====== FILE, IMAGE, MEDIA_GALLEY FIELD DETAILS =====' );
+									error_log( '===== MIME-TYPES =====' );
+									error_log( print_r( $field_options, true ) );
+								}
+								$customFieldGroupFields[ $index ] = Field::make( $field_type, $field_id, $field_name )
+								                                         ->set_help_text( $field_description )
+								                                         ->set_type( $field_mime_types );
+								break;
+							default:
+								$customFieldGroupFields[ $index ] = Field::make( $field_type, $field_id, $field_name )
+								                                         ->set_help_text( $field_description )
+								                                         ->set_default_value( $field_default_value )
+								                                         ->set_attribute( 'placeholder', $field_placeholder );
+						}
+
+						if ( defined( 'WP_DEBUG' ) ) {
+							error_log( '======== FIELD GROUP FIELDS ARRAY ========' );
+							error_log( print_r( $customFieldGroupFields, true ) );
+						}
+					}
+
+					Container::make( 'post_meta', $customFieldGroup['group_name'] )
+					         ->where( 'post_type', '=', 'collection' )
+					         ->add_fields( $customFieldGroupFields );
+				}
+			}
+		}
 	}
 
 	public function disableGutenBergForCollection( $current_status, $post_type ): mixed {
@@ -682,9 +801,9 @@ class CollectorPlugin {
 	}
 
 	public function getCollectionTypes() {
-		if ( defined( 'WP_DEBUG' ) ) {
+		/*if ( defined( 'WP_DEBUG' ) ) {
 			error_log( $this->option( 'collector_use_categories' ) );
-		}
+		}*/
 		$categoriesRaw = get_terms( array(
 			'taxonomy'   => 'collection_type',
 			'hide_empty' => false,
@@ -692,7 +811,7 @@ class CollectorPlugin {
 		) );
 		$categories    = array();
 
-		if ( defined( 'WP_DEBUG' ) ) {
+		/*if ( defined( 'WP_DEBUG' ) ) {
 			error_log( '===== GET COLLECTION TYPES =====' );
 			error_log( '==== TYPE OF RETURNED CATEGORIESRAW ====' );
 			error_log( gettype( $categoriesRaw ) );
@@ -700,19 +819,19 @@ class CollectorPlugin {
 				error_log( '==== CATEGORIESRAW COUNT ====' );
 				error_log( count( $categoriesRaw ) );
 			}
-		}
+		}*/
 
 		if ( gettype( $categoriesRaw ) === "array" && count( $categoriesRaw ) >= 1 ) {
-			if ( defined( 'WP_DEBUG' ) ) {
+			/*if ( defined( 'WP_DEBUG' ) ) {
 				error_log( print_r( $categoriesRaw, true ) );
-			}
+			}*/
 
 			foreach ( $categoriesRaw as $index => $category ) {
-				$categories[ $category->term_id ] = esc_html( $category->name );
-				if ( defined( 'WP_DEBUG' ) ) {
+				$categories[ $category->slug ] = esc_html( $category->name );
+				/*if ( defined( 'WP_DEBUG' ) ) {
 					error_log( gettype( $category ) );
 					error_log( print_r( $categories, true ) );
-				}
+				}*/
 			}
 		}
 
