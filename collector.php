@@ -629,6 +629,12 @@ class CollectorPlugin {
 					                                           ),
 				                                           ) ),
 
+				                                      // add an option to show field group in rest
+				                                      Field::make( 'checkbox', 'field_group_show_in_rest', __( 'Show Field Group in REST API', $this->pluginTextDomain ) )
+				                                           ->set_help_text( __( 'Check this box if you want your extra fields to show up as post meta in the REST API route', $this->pluginTextDomain ) )
+				                                           ->set_option_value( 'yes' )
+				                                           ->set_default_value( false ),
+
 
 			                                      ) ),
 		                                 ) );
