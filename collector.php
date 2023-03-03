@@ -129,7 +129,7 @@ class CollectorPlugin {
 			'has_archive'  => true,
 			'menu_icon'    => $menuIcon,
 			'rewrite'      => array( 'with_front' => true ),
-			'supports'     => array( 'title', 'editor', 'excerpt' ),
+			'supports'     => array( 'title', 'editor', 'excerpt', 'thumbnail' ),
 			'show_in_rest' => ( isset( $openToRest ) && gettype( $openToRest ) === "boolean" && $openToRest ) ? $openToRest : false,
 		) );
 	}
