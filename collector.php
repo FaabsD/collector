@@ -54,7 +54,7 @@ class CollectorPlugin {
 	 */
 	public function collectorSetup(): void {
 		$this->registerPosttypes();
-		$this->registerRestFields();
+		// $this->registerRestFields();
 
 		if ( gettype( $this->option( 'collector_use_categories' ) ) === "string" && $this->option( 'collector_use_categories' ) === "yes" ) {
 			$this->registerTaxonomies();
@@ -634,9 +634,11 @@ class CollectorPlugin {
 
 				                                      // add an option to show field group in rest
 				                                      Field::make( 'checkbox', 'field_group_show_in_rest', __( 'Show Field Group in REST API', $this->pluginTextDomain ) )
-				                                           ->set_help_text( __( 'Check this box if you want your extra fields to show up as post meta in the REST API route', $this->pluginTextDomain ) )
+				                                           ->set_help_text( __( 'Check this box if you want your extra fields to show up as post meta in the REST API route. Check it only if you have enabled the "Show in Rest API" option under the "Developer Options" tab of the plugin options.', $this->pluginTextDomain ) )
 				                                           ->set_option_value( 'yes' )
-				                                           ->set_default_value( false ),
+				                                           ->set_default_value(
+					                                           (bool) $this->option( 'collector_show_in_rest' )
+				                                           ),
 
 
 			                                      ) ),
@@ -689,6 +691,14 @@ class CollectorPlugin {
 						$field_options       = array();
 						$field_mime_types    = array();
 
+						if ( defined( 'WP_DEBUG' ) ) {
+							error_log( '======== SHOW IN REST API ========' );
+							error_log( 'General show in rest: ' . $this->option( 'collector_show_in_rest' ) );
+							error_log( 'General show in rest Type: ' . gettype( $this->option( 'collector_show_in_rest' ) ) );
+							error_log( 'Field-group show in rest: ' . $customFieldGroup['field_group_show_in_rest'] );
+							error_log( 'Field-group show in rest type: ' . gettype( $customFieldGroup['field_group_show_in_rest'] ) );
+						}
+
 						// Create Field according to field_type and put it in the $customFieldGroupFields array
 						switch ( $field_type ) {
 							case "color" :
@@ -703,7 +713,10 @@ class CollectorPlugin {
 								}
 								$customFieldGroupFields[ $index ] = Field::make( $field_type, $field_id, $field_name )
 								                                         ->set_help_text( $field_description )
-								                                         ->set_palette( $field_color_palette );
+								                                         ->set_palette( $field_color_palette )
+								                                         ->set_visible_in_rest_api(
+									                                         $this->option( 'collector_show_in_rest' ) && $customFieldGroup['field_group_show_in_rest']
+								                                         );
 								break;
 							case "radio":
 							case "select":
@@ -720,7 +733,10 @@ class CollectorPlugin {
 
 								$customFieldGroupFields[ $index ] = Field::make( $field_type, $field_id, $field_name )
 								                                         ->set_help_text( $field_description )
-								                                         ->add_options( $field_options );
+								                                         ->add_options( $field_options )
+								                                         ->set_visible_in_rest_api(
+									                                         $this->option( 'collector_show_in_rest' ) && $customFieldGroup['field_group_show_in_rest']
+								                                         );
 								break;
 							case 'file':
 							case 'image':
@@ -736,13 +752,19 @@ class CollectorPlugin {
 								}
 								$customFieldGroupFields[ $index ] = Field::make( $field_type, $field_id, $field_name )
 								                                         ->set_help_text( $field_description )
-								                                         ->set_type( $field_mime_types );
+								                                         ->set_type( $field_mime_types )
+								                                         ->set_visible_in_rest_api(
+									                                         $this->option( 'collector_show_in_rest' ) && $customFieldGroup['field_group_show_in_rest']
+								                                         );
 								break;
 							default:
 								$customFieldGroupFields[ $index ] = Field::make( $field_type, $field_id, $field_name )
 								                                         ->set_help_text( $field_description )
 								                                         ->set_default_value( $field_default_value )
-								                                         ->set_attribute( 'placeholder', $field_placeholder );
+								                                         ->set_attribute( 'placeholder', $field_placeholder )
+								                                         ->set_visible_in_rest_api(
+									                                         $this->option( 'collector_show_in_rest' ) && $customFieldGroup['field_group_show_in_rest']
+								                                         );
 						}
 
 						if ( defined( 'WP_DEBUG' ) ) {
