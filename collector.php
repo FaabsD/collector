@@ -361,7 +361,7 @@ class CollectorPlugin {
 				                                           ->set_attribute( 'placeholder', 'Custom Data' )
 				                                           ->set_required( true ),
 
-				                                      Field::make( 'select', 'group_category', __( 'Field group category' ) )
+				                                      Field::make( 'multiselect', 'group_category', __( 'Field group category' ) )
 				                                           ->add_options(
 					                                           [ $this, 'getCollectionTypes' ]
 				                                           )
@@ -660,13 +660,37 @@ class CollectorPlugin {
 					error_log( '======= LOOP THROUGH ALL THE CUSTOM FIELD GROUPS =======' );
 				}
 
-				foreach ( $customFieldGroups as $customFieldGroup ) {
+				foreach ( $customFieldGroups as $index => $customFieldGroup ) {
+
+					// START getting group categories
+
+					$categoryIndex        = 0;
+					$fieldGroupCategories = array();
+
+					for ( $categoryIndex; gettype( get_option( '_collector_collection_custom_field_groups|group_category|' . $index . '|' . $categoryIndex . '|value' ) ) != "boolean"; $categoryIndex ++ ) {
+						if ( defined( 'WP_DEBUG' ) ) {
+							error_log( '======== WHOOP WHOOP ========' );
+							error_log( 'categoryIndex: ' . $categoryIndex );
+							error_log( get_option( '_collector_collection_custom_field_groups|group_category|' . $index . '|' . $categoryIndex . '|value' ) );
+						}
+
+						$fieldGroupCategories[ $categoryIndex ] = array(
+							'field'    => 'slug',
+							'value'    => get_option( '_collector_collection_custom_field_groups|group_category|' . $index . '|' . $categoryIndex . '|value' ),
+							'taxonomy' => 'collection_type',
+						);
+					}
+
+					// END getting group categories
+
 					if ( defined( 'WP_DEBUG' ) ) {
 						error_log( '====== FIELD GROUP ======' );
 						error_log( 'Type: ' . gettype( $customFieldGroup ) );
 						error_log( '===== FIELD GROUP DATA =====' );
 						error_log( gettype( $customFieldGroup['group_category'] ) );
 						error_log( print_r( $customFieldGroup, true ) );
+						error_log( '==== CATEGORIES ==== ' );
+						error_log( print_r( $fieldGroupCategories, true ) );
 					}
 
 					$customFieldGroupFields = array();
@@ -775,7 +799,9 @@ class CollectorPlugin {
 
 					Container::make( 'post_meta', $customFieldGroup['group_name'] )
 					         ->where( 'post_type', '=', 'collection' )
+					         ->where( 'post_term', 'IN', $fieldGroupCategories )
 					         ->add_fields( $customFieldGroupFields );
+
 				}
 			}
 		}
