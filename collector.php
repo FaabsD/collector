@@ -4,7 +4,7 @@
 Plugin Name: Collector
 Plugin URI: https://fd-hendriks.nl
 Description: A brief description of the Plugin.
-Version: 1.0
+Version: 1.5
 Author: Fabian
 Author URI: https://fd-hendriks.nl
 License: A "Slug" license name e.g. GPL2
